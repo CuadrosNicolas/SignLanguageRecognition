@@ -1,16 +1,10 @@
-from __future__ import print_function
-import argparse
-import os
 import random
 import torch
 import torch.nn as nn
-import torch.nn.parallel
-import torch.backends.cudnn as cudnn
 import torch.optim as optim
 import torch.utils.data
 import torchvision.datasets as dset
 import torchvision.transforms as transforms
-import torchvision.utils as vutils
 import torch.nn.functional as F
 from PIL import Image
 import numpy as np
@@ -25,14 +19,12 @@ random.seed(manualSeed)
 torch.manual_seed(manualSeed)
 device = torch.device("cuda:0")
 
-batchnorm = nn.BatchNorm1d(512).cuda()
 #Création des différents modèles de réseaux
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(1, 64, 5, 1)
         self.conv2 = nn.Conv2d(64, 128, 5, 1)
-
         self.fc1 = nn.Linear(5*5*128, 1000)
         self.fc2 = nn.Linear(1000, 10)
 
@@ -68,7 +60,7 @@ class Net_FC(nn.Module):
 
 
 
-def train(model, device, dataloader_train, optimizer, epoch, criterion):
+def train(model, dataloader_train, optimizer, epoch, criterion):
     model.train()
     sum_loss = 0
     for i, (data,target) in enumerate(dataloader_train, 0):
@@ -87,7 +79,7 @@ def train(model, device, dataloader_train, optimizer, epoch, criterion):
                 100. * i / len(dataloader_train), loss.item()))
         return sum_loss / len(dataloader_train)
 
-def test(model, device, test_loader):
+def test(model, test_loader):
     model.eval()
     test_loss = 0
     correct = 0
@@ -108,7 +100,7 @@ def test(model, device, test_loader):
 Trans = transforms.Compose([
             transforms.Resize(32),
             transforms.ToTensor(),
-            transforms.Normalize((0.5,), (0.5,)),
+            transforms.Normalize((0.3,), (0.7,)),
         ])
 images = [Trans(Image.fromarray(im)) for im in np.load("./datas/X.npy")]
 #Chargement des classes
@@ -126,20 +118,19 @@ for i in range(len(classes)):
     images[i] = im
     classes[i] = c
 #Définition des partitions du dataset
-prc_train = int(0.7*len(images))
+prc_train = int(0.80*len(images))
 prc_test = prc_train + int(0.2*len(images))
-prc_eval = prc_test + int(0.1*len(images))
 #Chargement des partitions
 def load():
     out = []
-    prc = [prc_train,prc_test,prc_eval]
+    prc = [prc_train,prc_test]
     for i in range(len(prc)):
         if i == 0:
             images_train = [(im) for im in images[:prc[i]]]
             classes_train = classes[:prc_train]
-        elif i == len(prc)-1:
-            images_train = [(im) for im in images[prc[i]:]]
-            classes_train = classes[prc[i]:]
+        #elif i == len(prc)-1:
+        #    images_train = [(im) for im in images[prc[i]:]]
+        #    classes_train = classes[prc[i]:]
         else:
             images_train = [(im) for im  in images[prc[i-1]:prc[i]]]
             classes_train = classes[prc_train:prc_test]
@@ -149,14 +140,13 @@ def load():
         dataloader_train = utils.DataLoader(datas_train,50, shuffle=True)
         out.append(dataloader_train)
     return out
-[dataloader_train,dataloader_test,dataloader_eval] = load()
+[dataloader_train,dataloader_test] = load()
 
 
 
 
 #Création de la loss
 criterion = nn.NLLLoss()
-
 model = Net().to(device)
 #choix de l'optimisateur
 optimizer = torch.optim.Adam(model.parameters(), lr=0.003)
@@ -166,8 +156,8 @@ train_loss = []
 test_loss = []
 #Entrainement
 for epoch in epoch_arr:
-    train_loss.append( train(model, device, dataloader_train, optimizer, epoch, F.nll_loss))
-    test_loss.append( test(model, device, dataloader_test) )
+    train_loss.append( train(model, dataloader_train, optimizer, epoch, F.nll_loss))
+    test_loss.append( test(model, dataloader_test) )
 #Affichage des courbes de loss
 plt.plot(epoch_arr,train_loss,'b')
 plt.plot(epoch_arr,test_loss,'g')
