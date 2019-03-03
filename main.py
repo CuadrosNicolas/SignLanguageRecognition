@@ -247,7 +247,7 @@ model = Net_RES_32().to(device)
 #choix de l'optimisateur
 optimizer = torch.optim.Adam(model.parameters(), lr=0.003)
 
-epoch_arr = range(1000)
+epoch_arr = range(5000)
 train_loss = []
 test_loss = []
 max_test = 0
